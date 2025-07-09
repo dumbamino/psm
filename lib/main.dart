@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:psm/pages/splashpage.dart';
 // We no longer need to import HomeScreen here directly.
-// import 'package:psm/screens/homescreen.dart';
+// import 'package:psm/screens/homescreen.jdart';
 //notaaaaaaaaaaaaaaaaaaaa jjijijiji
 import 'package:psm/service/auth.dart' as app_auth_service;
 import 'package:psm/service/authWrapper.dart';
