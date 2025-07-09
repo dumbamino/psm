@@ -1,0 +1,37 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "al-marhum",
+          "appId": "1:579111689428:android:24f60920e7e270cc49af41",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "al-marhum",
+          "configurations": {
+            "android": "1:579111689428:android:24f60920e7e270cc49af41",
+            "ios": "1:579111689428:ios:1353ededbb2f0eb849af41",
+            "web": "1:579111689428:web:74d601649b3ccc7749af41"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

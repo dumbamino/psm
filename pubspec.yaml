@@ -1,0 +1,89 @@
+name: psm
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  firebase_core: ^3.13.0
+  firebase_auth: ^5.5.3
+  firebase_storage: ^12.4.5
+  cloud_firestore: ^5.6.7
+  shared_preferences: ^2.3.5
+  google_sign_in: ^6.3.0
+  flutter_localization: ^0.3.1
+  provider: ^6.1.5
+  supported_languages: ^0.0.1
+  cupertino_icons: ^1.0.8
+  google_maps_flutter: ^2.12.1
+  location: ^8.0.0
+  latlong2: ^0.9.1
+  google_maps_flutter_web: ^0.5.12
+  flutter_map_location_marker: ^10.0.2
+  intl: ^0.20.2
+  flutter_polyline_points: ^2.1.0
+  google_nav_bar: ^5.0.7
+  fluttertoast: ^8.2.12
+  geolocator: ^14.0.0
+  google_maps_flutter_android: ^2.16.1
+  curved_labeled_navigation_bar: ^2.0.6
+  curved_navigation_bar: ^1.0.6
+  share_plus: ^11.0.0
+  awesome_notifications: ^0.10.1
+  image_picker: ^1.1.2
+  flutter_typeahead: ^5.2.0
+  # --- STEP 1: REMOVE THIS LINE from dependencies ---
+  # flutter_launcher_icons: ^0.14.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^5.0.0
+
+  # --- STEP 2: ADD THIS LINE to dev_dependencies ---
+  flutter_launcher_icons: ^0.13.1 # Using a stable, widely-used version
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/al-marhum/
+    - assets/images/yaasin/
+    - assets/images/talqin/
+    - assets/icon/
+
+  fonts:
+    - family: Metamorphous
+      fonts:
+        - asset: assets/fonts/Metamorphous-Regular.ttf
+
+# --- STEP 3: ADD THIS ENTIRE SECTION AT THE VERY BOTTOM OF THE FILE ---
+# This is the configuration section for generating the icons.
+# Make sure it's at the root level (no indentation).
+flutter_launcher_icons:
+  # === Required settings ===
+  # Set to false if you don't want to generate for a specific platform
+  image_path: "assets/icon/icon.png"
+  image_path_android: "assets/icon/icon.png"
+  android: true
+  ios: true
+
+  # The path to your high-resolution icon image (at least 1024x1024)
+  # IMPORTANT: Make sure you have created this folder and placed your icon inside.
+
+  # === Optional: Adaptive Icons for modern Android ===
+  # This is highly recommended for a professional look.
+  # The min_sdk_android is required for this to work.
+  min_sdk_android: 21
+
+  adaptive_icon_foreground: "assets/icon/icon_foreground.png" # The icon itself
+  # A solid color for the background, or an image path
+  adaptive_icon_background: "#FFFFFF"
+  # Example with image: adaptive_icon_background: "assets/icon/background.png"
