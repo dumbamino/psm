@@ -39,7 +39,7 @@ dependencies:
   image_picker: ^1.1.2
   flutter_typeahead: ^5.2.0
   # --- STEP 1: REMOVE THIS LINE from dependencies ---
-  # flutter_launcher_icons: ^0.14.4
+  # flutter_launcher_icons: ^0.14.4fd
 
 dev_dependencies:
   flutter_test:
