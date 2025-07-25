@@ -15,6 +15,8 @@ class _DoaForMenScreenState extends State<DoaForMenScreen> {
     "assets/images/talqin/lelaki2.png",
   ];
 
+  bool _isZooming = false;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -38,7 +40,9 @@ class _DoaForMenScreenState extends State<DoaForMenScreen> {
           ),
           PageView.builder(
         scrollDirection: Axis.vertical,
-        physics: const PageScrollPhysics(),
+        physics: _isZooming
+            ? const NeverScrollableScrollPhysics()
+            : const PageScrollPhysics(),
         itemCount: doaPages.length,
         itemBuilder: (context, index) {
           final imagePath = doaPages[index];
@@ -51,21 +55,28 @@ class _DoaForMenScreenState extends State<DoaForMenScreen> {
                 child: child,
               );
             },
-            child: Image.asset(
-              imagePath,
-                  fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'Unable to load asset:\n$imagePath\n\n- Check the path in your code.\n- Ensure the file exists in that exact folder.\n- Verify the folder is listed in pubspec.yaml.',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.red),
+            child: InteractiveViewer(
+              panEnabled: true,
+              minScale: 1.0,
+              maxScale: 4.0,
+              onInteractionStart: (_) => setState(() => _isZooming = true),
+              onInteractionEnd: (_) => setState(() => _isZooming = false),
+              child: Image.asset(
+                imagePath,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        'Unable to load asset:\n$imagePath\n\n- Check the path in your code.\n- Ensure the file exists in that exact folder.\n- Verify the folder is listed in pubspec.yaml.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.red),
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           );
         },

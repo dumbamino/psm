@@ -15,6 +15,7 @@ import 'package:psm/service/firebase_options.dart';
 import 'package:psm/service/firestore.dart' as app_record_service;
 import 'package:psm/localization/locale_provider.dart';
 import 'localization/app_localizations.dart';
+import 'package:geolocator/geolocator.dart';
 
 
 // Import the new notification service
@@ -26,6 +27,8 @@ import 'package:psm/widgets/notifications.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await _ensureLocationPermission();
 
   // Initialize notifications
   await NotificationService.initializeNotification();
@@ -107,5 +110,13 @@ class _MyAppState extends State<MyApp> {
         );
       },
     );
+  }
+}
+
+Future<void> _ensureLocationPermission() async {
+  LocationPermission permission = await Geolocator.checkPermission();
+  if (permission == LocationPermission.denied ||
+      permission == LocationPermission.deniedForever) {
+    await Geolocator.requestPermission();
   }
 }

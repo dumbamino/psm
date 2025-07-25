@@ -1,10 +1,12 @@
-// lib/screens/search_screen.dart
-
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:psm/screens/MyRecords.dart';
+import 'package:psm/service/firestore.dart';
 import 'package:psm/service/records.dart';
+
+import '../profile/profilescreen.dart'; // Reuse colors and styles
 import 'localization/app_localizations.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -21,6 +23,8 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _deceasedDodController = TextEditingController();
+
+  final RecordFirestoreService _recordService = RecordFirestoreService();
 
   Record? _selectedRecord;
   bool _isSearching = false;
@@ -46,6 +50,21 @@ class _SearchScreenState extends State<SearchScreen> {
       initialDate: initialDate,
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: ColorScheme.light(
+            primary: AppColors.practiceCategory,
+            onPrimary: Colors.white,
+            onSurface: Colors.black87,
+          ),
+          textButtonTheme: TextButtonThemeData(
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.practiceCategory,
+            ),
+          ),
+        ),
+        child: child!,
+      ),
     );
     if (pickedDate != null && mounted) {
       setState(() {
@@ -55,7 +74,14 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Stream<QuerySnapshot> _getRecordsStream() {
-    return FirebaseFirestore.instance.collection('records').orderBy('deceasedName').snapshots();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const Stream.empty();
+
+    return FirebaseFirestore.instance
+        .collection(kCollectionRecords)
+        .where(kUserIdField, isEqualTo: user.uid)
+        .orderBy(kDeceasedNameField)
+        .snapshots();
   }
 
   Future<void> _performDateSearch() async {
@@ -64,49 +90,56 @@ class _SearchScreenState extends State<SearchScreen> {
     final String deceasedDodString = _deceasedDodController.text;
 
     if (deceasedDodString.isEmpty) {
-      // Use a specific error key for this case
-      _showErrorSnackBar(AppLocalizations.getSync(context, 'errorSelectDate') ?? 'Please select a date to filter by.');
+      _showErrorSnackBar(
+        AppLocalizations.getSync(context, 'errorSelectDate') ??
+            'Please select a date to filter by.',
+      );
       return;
     }
 
     setState(() => _isSearching = true);
 
     try {
-      Query query = FirebaseFirestore.instance.collection('records');
-
-      try {
-        final DateTime searchDate = _inputOutputDateFormat.parseStrict(deceasedDodString);
-        DateTime startOfDay = DateTime(searchDate.year, searchDate.month, searchDate.day);
-        DateTime endOfDay = DateTime(searchDate.year, searchDate.month, searchDate.day, 23, 59, 59, 999);
-        query = query
-            .where('deceasedDod', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
-            .where('deceasedDod', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay));
-      } catch (e) {
-        _showErrorSnackBar(AppLocalizations.getSync(context, 'errorInvalidDateFormat') ?? 'Invalid Date of Death format. Please use DD/MM/YYYY.');
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _showErrorSnackBar(
+          AppLocalizations.getSync(context, 'noResults') ??
+              'No matching records found.',
+        );
         setState(() => _isSearching = false);
         return;
       }
 
-      final QuerySnapshot snapshot = await query.limit(20).get();
-      final List<Record> foundRecords = snapshot.docs.map<Record?>((doc) {
-        try {
-          return Record.fromSnapshot(doc);
-        } catch (e) {
-          print("Skipping search result document ${doc.id} due to parsing error: $e");
-          return null;
-        }
-      }).whereType<Record>().toList();
+      DateTime searchDate;
+      try {
+        searchDate = _inputOutputDateFormat.parseStrict(deceasedDodString);
+      } catch (e) {
+        _showErrorSnackBar(
+          AppLocalizations.getSync(context, 'errorInvalidDateFormat') ??
+              'Invalid Date of Death format. Please use DD/MM/YYYY.',
+        );
+        setState(() => _isSearching = false);
+        return;
+      }
+
+      final List<Record> foundRecords =
+          await _recordService.searchRecordsByDateForUser(user.uid, searchDate);
 
       if (mounted) {
         if (foundRecords.isEmpty) {
-          _showErrorSnackBar(AppLocalizations.getSync(context, 'noResults') ?? 'No matching records found.');
+          _showErrorSnackBar(
+            AppLocalizations.getSync(context, 'noResults') ??
+                'No matching records found.',
+          );
         } else {
           _navigateToResults(foundRecords);
         }
       }
     } catch (e) {
       print("Error during date search: $e");
-      _showErrorSnackBar('${AppLocalizations.getSync(context, 'errorDuringSearch') ?? 'Error during search'}: ${e.toString()}');
+      _showErrorSnackBar(
+        '${AppLocalizations.getSync(context, 'errorDuringSearch') ?? 'Error during search'}: ${e.toString()}',
+      );
     } finally {
       if (mounted) {
         setState(() => _isSearching = false);
@@ -127,77 +160,90 @@ class _SearchScreenState extends State<SearchScreen> {
   void _showErrorSnackBar(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).removeCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message),
-      backgroundColor: Colors.red.shade600,
-      behavior: SnackBarBehavior.floating,
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.destructiveCategory,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // --- LOCALIZATION: Fetch all strings at the start of the build method ---
-    final appBarTitle = AppLocalizations.getSync(context, 'title') ?? 'Search Grave Records';
-    final selectRecordHint = AppLocalizations.getSync(context, 'selectRecordHint') ?? 'Browse and select a record...';
-    final deceasedDodHint = AppLocalizations.getSync(context, 'deceasedDodHint') ?? 'Deceased Date of Death (DD/MM/YYYY)';
-    final searchBtnText = AppLocalizations.getSync(context, 'searchBtn') ?? 'Search Records';
+    final appBarTitle =
+        AppLocalizations.getSync(context, 'title') ?? 'Search Grave Records';
+    final selectRecordHint =
+        AppLocalizations.getSync(context, 'selectRecordHint') ??
+            'Browse and select a record...';
+    final deceasedDodHint =
+        AppLocalizations.getSync(context, 'deceasedDodHint') ??
+            'Deceased Date of Death (DD/MM/YYYY)';
+    final searchBtnText =
+        AppLocalizations.getSync(context, 'searchBtn') ?? 'Search Records';
 
-
-    return Scaffold(
-      appBar: AppBar(
-        // Use the localized title
-        title: Text(
-          appBarTitle,
-          style: const TextStyle(
-            fontFamily: 'Metamorphous',
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-            color: Colors.black87,
-          ),
+    return Container(
+      decoration: const BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage('assets/images/al-marhum/islamicbackground.png'),
+          fit: BoxFit.cover,
         ),
-        // --- FIX: Use a solid white background for readability ---
-        backgroundColor: Colors.white,
-        centerTitle: true,
-        elevation: 1,
       ),
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/al-marhum/islamicbackground.png'),
-            fit: BoxFit.cover,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black.withOpacity(0.5),
+              Colors.black.withOpacity(0.8),
+            ],
           ),
         ),
-        // --- FIX: Removed redundant nested SafeArea ---
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 20),
-                  // Pass the localized hint to the dropdown builder
-                  _buildRecordsDropdownStream(selectRecordHint),
-                  const SizedBox(height: 16),
-                  _buildTextField(
-                    // Use the localized hint
-                    hintText: deceasedDodHint,
-                    controller: _deceasedDodController,
-                    prefixIcon: Icons.calendar_today,
-                    readOnly: true,
-                    onTap: _selectDate,
-                  ),
-                  const SizedBox(height: 32),
-                  _buildSearchButton(
-                    isSearching: _isSearching,
-                    // Use the localized button text
-                    searchText: searchBtnText,
-                    onPressed: _performDateSearch,
-                  ),
-                ],
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          extendBodyBehindAppBar: true,
+          appBar: AppBar(
+            backgroundColor: Colors.white.withOpacity(0.95),
+            elevation: 1,
+            centerTitle: true,
+            title: Text(
+              appBarTitle,
+              style: const TextStyle(
+                fontFamily: 'Metamorphous',
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+                color: Colors.black87,
+              ),
+            ),
+            iconTheme: const IconThemeData(color: Colors.black87),
+          ),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 20),
+                    _buildRecordsDropdownStream(selectRecordHint),
+                    const SizedBox(height: 16),
+                    _buildTextField(
+                      hintText: deceasedDodHint,
+                      controller: _deceasedDodController,
+                      prefixIcon: Icons.calendar_today,
+                      readOnly: true,
+                      onTap: _selectDate,
+                    ),
+                    const SizedBox(height: 32),
+                    _buildSearchButton(
+                      isSearching: _isSearching,
+                      searchText: searchBtnText,
+                      onPressed: _performDateSearch,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -215,59 +261,171 @@ class _SearchScreenState extends State<SearchScreen> {
         }
         if (snapshot.hasError) {
           print("!!! STREAM ERROR: ${snapshot.error}");
-          return Text('Error loading records. Check Debug Console.');
+          return const Text('Error loading records. Check Debug Console.');
         }
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return const Text('No records found in the database.');
         }
 
-        final List<Record> records = snapshot.data!.docs.map<Record?>((doc) {
-          try {
-            return Record.fromSnapshot(doc);
-          } catch (e) {
-            print("!!! FAILED to parse document ${doc.id}. Error: $e");
-            return null;
-          }
-        }).whereType<Record>().toList();
+        final List<Record> records = snapshot.data!.docs
+            .map<Record?>((doc) {
+              try {
+                return Record.fromSnapshot(doc);
+              } catch (e) {
+                print("!!! FAILED to parse document ${doc.id}. Error: $e");
+                return null;
+              }
+            })
+            .whereType<Record>()
+            .toList();
 
         return DropdownButtonFormField<Record>(
           value: _selectedRecord,
           isExpanded: true,
-          hint: Text(hintText, overflow: TextOverflow.ellipsis),
+          hint: Text(
+            hintText,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontFamily: 'Metamorphous',
+              fontSize: 16,
+              color: Colors.black54,
+            ),
+          ),
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.white.withOpacity(0.95),
-            prefixIcon: Icon(Icons.person_search, color: Colors.green.shade800),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0), borderSide: BorderSide.none),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0), borderSide: BorderSide(color: Colors.grey.shade300)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0), borderSide: BorderSide(color: Colors.green.shade700, width: 2.0)),
+            prefixIcon:
+                Icon(Icons.person_search, color: AppColors.practiceCategory),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12.0),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12.0),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12.0),
+              borderSide:
+                  BorderSide(color: AppColors.practiceCategory, width: 2.0),
+            ),
           ),
           items: records.map((Record record) {
             return DropdownMenuItem<Record>(
               value: record,
-              // --- FIX: Show both name and lot number for clarity ---
               child: Text(
                 '${record.deceasedName} (Lot: ${record.lotNumber ?? 'N/A'})',
                 overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: 'Metamorphous',
+                  fontSize: 16,
+                  color: Colors.black87,
+                ),
               ),
             );
           }).toList(),
-          onChanged: records.isEmpty ? null : (Record? newValue) {
-            if (newValue != null) {
-              setState(() {
-                _selectedRecord = newValue;
-              });
-              _navigateToResults([newValue]);
-            }
-          },
+          onChanged: snapshot.data!.docs.isEmpty
+              ? null
+              : (Record? newValue) {
+                  if (newValue != null) {
+                    setState(() {
+                      _selectedRecord = newValue;
+                    });
+                    _navigateToResults([newValue]);
+                  }
+                },
           validator: (value) => null,
         );
       },
     );
   }
 
-  Widget _buildTextField({ required String hintText, required TextEditingController controller, IconData? prefixIcon, bool readOnly = false, VoidCallback? onTap, }) { return TextFormField( controller: controller, readOnly: readOnly, onTap: onTap, style: const TextStyle(fontSize: 16, color: Colors.black87), decoration: InputDecoration( hintText: hintText, hintStyle: TextStyle(color: Colors.grey.shade600), filled: true, fillColor: Colors.white.withOpacity(0.95), prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: Colors.green.shade800) : null, contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0), borderSide: BorderSide.none), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0), borderSide: BorderSide(color: Colors.grey.shade300)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0), borderSide: BorderSide(color: Colors.green.shade700, width: 2.0)), ), ); }
+  Widget _buildTextField({
+    required String hintText,
+    required TextEditingController controller,
+    IconData? prefixIcon,
+    bool readOnly = false,
+    VoidCallback? onTap,
+  }) {
+    return TextFormField(
+      controller: controller,
+      readOnly: readOnly,
+      onTap: onTap,
+      style: const TextStyle(
+        fontFamily: 'Metamorphous',
+        fontSize: 16,
+        color: Colors.black87,
+      ),
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: TextStyle(
+          color: Colors.grey.shade600,
+          fontFamily: 'Metamorphous',
+          fontSize: 16,
+        ),
+        filled: true,
+        fillColor: Colors.white.withOpacity(0.95),
+        prefixIcon: prefixIcon != null
+            ? Icon(prefixIcon, color: AppColors.practiceCategory)
+            : null,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12.0),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12.0),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12.0),
+          borderSide: BorderSide(color: AppColors.practiceCategory, width: 2.0),
+        ),
+      ),
+    );
+  }
 
-  Widget _buildSearchButton({ required bool isSearching, required String searchText, required VoidCallback onPressed, }) { return SizedBox( height: 52, child: ElevatedButton.icon( icon: isSearching ? Container() : const Icon(Icons.filter_alt, color: Colors.white), label: isSearching ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white)) : Text(searchText, style: const TextStyle(fontSize: 17, color: Colors.white, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom( backgroundColor: Colors.green.shade700, disabledBackgroundColor: Colors.grey.shade500, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 5, ), onPressed: isSearching ? null : onPressed, ), ); }
+  Widget _buildSearchButton({
+    required bool isSearching,
+    required String searchText,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      height: 52,
+      child: ElevatedButton.icon(
+        icon: isSearching
+            ? Container()
+            : const Icon(Icons.filter_alt, color: Colors.white),
+        label: isSearching
+            ? const SizedBox(
+                height: 24,
+                width: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  color: Colors.white,
+                ),
+              )
+            : Text(
+                searchText,
+                style: const TextStyle(
+                  fontFamily: 'Metamorphous',
+                  fontSize: 17,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.practiceCategory,
+          disabledBackgroundColor: Colors.grey.shade500,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 5,
+        ),
+        onPressed: isSearching ? null : onPressed,
+      ),
+    );
+  }
 }

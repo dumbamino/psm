@@ -112,4 +112,35 @@ class RecordFirestoreService {
       }
     });
   }
+
+  /// Searches records for a specific user by exact Date of Death.
+  Future<List<Record>> searchRecordsByDateForUser(String userId, DateTime date) async {
+    if (userId.isEmpty) return [];
+
+    DateTime startOfDay = DateTime(date.year, date.month, date.day);
+    DateTime endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59, 999);
+
+    try {
+      final snapshot = await _firestore
+          .collection(kCollectionRecords)
+          .where(kUserIdField, isEqualTo: userId)
+          .where(kDeceasedDodField, isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+          .where(kDeceasedDodField, isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
+          .orderBy(kDeceasedDodField)
+          .limit(20)
+          .get();
+
+      return snapshot.docs.map<Record?>((doc) {
+        try {
+          return Record.fromSnapshot(doc);
+        } catch (e) {
+          print("[Service.searchRecordsByDateForUser] Skipping doc ${doc.id} due to parse error: $e");
+          return null;
+        }
+      }).whereType<Record>().toList();
+    } catch (e, s) {
+      print("[Service.searchRecordsByDateForUser] Error querying records: $e\n$s");
+      return [];
+    }
+  }
 }

@@ -1,18 +1,34 @@
-// lib/profile/profile_screen.dart
-
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:psm/profile/viewprofile.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../localization/app_localizations.dart';
 import '../localization/locale_provider.dart';
 import '../pages/notificationpage.dart';
 import '../screens/homescreen.dart';
+import '../service/auth.dart' as app_auth_service;
 import '../talqin_doa/talqin_doa.dart';
 import 'change_password.dart';
-import '../service/auth.dart' as app_auth_service;
 import 'yassin.dart';
+
+const String _kImageKey = 'profile_image_path';
+
+class AppColors {
+  static const Color primary = Color(0xFF004D40);
+  static const Color accent = Color(0xFFD4AF37);
+  static const Color textPrimary = Colors.white;
+  static const Color textSecondary = Colors.white70;
+  static const Color accountCategory = Color(0xFF1976D2);
+  static const Color practiceCategory = Color(0xFF388E3C);
+  static const Color settingsCategory = Color(0xFF616161);
+  static const Color destructiveCategory = Color(0xFFD32F2F);
+}
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -23,8 +39,9 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   String _userName = "Loading...";
-  String _email = "Loading...";
-  final TextEditingController fullNameController = TextEditingController();
+  String _userEmail = "Loading...";
+  String _userInitial = "";
+  File? _profileImageFile;
 
   StreamSubscription<User?>? _authStateSubscription;
   bool _isLoggingOut = false;
@@ -32,142 +49,141 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    print("ProfileScreen: initState called.");
-
+    _loadProfileData();
     _authStateSubscription =
         FirebaseAuth.instance.authStateChanges().listen((User? user) {
-          print(
-              "ProfileScreen: authStateChanges triggered. User is ${user == null ? 'null' : 'not null (UID: ${user?.uid})'}");
-          if (!mounted) return;
+      if (!mounted) return;
+      _loadProfileData();
+    });
+  }
 
-          if (user == null) {
-            setState(() {
-              _userName = "Not Logged In";
-              _email = "";
-            });
-          } else {
-            setState(() {
-              _userName = user.displayName ?? "No Name Set";
-              _email = user.email ?? "No Email Found";
-              print(
-                  "ProfileScreen: User data set - Name: $_userName, Email: $_email");
-            });
-          }
-        });
+  Future<void> _loadProfileData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    final prefs = await SharedPreferences.getInstance();
+    final imagePath = prefs.getString(_kImageKey);
+
+    if (!mounted) return;
+
+    if (user == null) {
+      setState(() {
+        _userName = "Not Logged In";
+        _userEmail = "";
+        _userInitial = "?";
+        _profileImageFile = null;
+      });
+    } else {
+      setState(() {
+        _userName = user.displayName ?? "No Name Set";
+        _userEmail = user.email ?? "No Email Found";
+        _profileImageFile = (imagePath != null && imagePath.isNotEmpty)
+            ? File(imagePath)
+            : null;
+
+        if (_userName.isNotEmpty && _userName != "No Name Set") {
+          _userInitial = _userName.trim().substring(0, 1).toUpperCase();
+        } else if (_userEmail.isNotEmpty) {
+          _userInitial = _userEmail.trim().substring(0, 1).toUpperCase();
+        } else {
+          _userInitial = "?";
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
-    print("ProfileScreen: dispose called, cancelling auth subscription.");
     _authStateSubscription?.cancel();
-    fullNameController.dispose();
     super.dispose();
   }
 
   Future<void> _showLogoutDialog() async {
     return showDialog<void>(
       context: context,
-      barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
+          backgroundColor: Colors.grey[850],
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(
             AppLocalizations.get(dialogContext, 'logoutConfirmationTitle',
-                fallback: 'Confirm Logout') ??
+                    fallback: 'Confirm Logout') ??
                 'Confirm Logout',
+            style: const TextStyle(color: AppColors.textPrimary),
+          ),
+          content: Text(
+            AppLocalizations.get(dialogContext, 'logoutConfirmationBody',
+                    fallback: 'Are you sure you want to log out?') ??
+                'Are you sure you want to log out?',
+            style: const TextStyle(color: AppColors.textSecondary),
           ),
           actions: <Widget>[
             TextButton(
               child: Text(
-                AppLocalizations.get(dialogContext, 'no', fallback: 'No') ??
-                    'No',
-              ),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
+                  AppLocalizations.get(dialogContext, 'no', fallback: 'No') ??
+                      'No',
+                  style: const TextStyle(color: Colors.white70)),
+              onPressed: () => Navigator.of(dialogContext).pop(),
             ),
             TextButton(
-                child: Text(
+              child: Text(
                   AppLocalizations.get(dialogContext, 'yes', fallback: 'Yes') ??
                       'Yes',
-                ),
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                  _performLogout(); // Call the logout function
-                }),
+                  style: const TextStyle(
+                      color: AppColors.destructiveCategory,
+                      fontWeight: FontWeight.bold)),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _performLogout();
+              },
+            ),
           ],
         );
       },
     );
   }
 
-  // --- THIS FUNCTION IS NOW CORRECTED ---
   Future<void> _performLogout() async {
     if (!mounted) return;
-
-    setState(() {
-      _isLoggingOut = true;
-    });
-
+    setState(() => _isLoggingOut = true);
     try {
       final authService =
-      Provider.of<app_auth_service.AuthService>(context, listen: false);
+          Provider.of<app_auth_service.AuthService>(context, listen: false);
       await authService.signOut();
-
-      // This is the single, reliable point of navigation after logout.
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-            builder: (context) => HomeScreen(onLanguageChange: (langCode) {}),
-          ),
-              (Route<dynamic> route) => false,
+              builder: (context) =>
+                  HomeScreen(onLanguageChange: (langCode) {})),
+          (Route<dynamic> route) => false,
         );
       }
     } catch (e) {
-      print("ProfileScreen: Logout failed: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(AppLocalizations.get(context, 'logout_failed',
-                  fallback: 'Logout failed: ${e.toString()}') ??
-                  'Logout failed: ${e.toString()}')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Logout failed: $e')));
       }
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoggingOut = false;
-        });
+        setState(() => _isLoggingOut = false);
       }
     }
   }
 
-  void _navigateToChangePassword() {
-    Navigator.push(context,
-        MaterialPageRoute(builder: (context) => const ChangePasswordScreen()));
-  }
+  void _navigateToChangePassword() => Navigator.push(context,
+      MaterialPageRoute(builder: (context) => const ChangePasswordScreen()));
 
-  void _navigateToViewProfile() {
-    Navigator.push(context,
+  void _navigateToViewProfile() async {
+    await Navigator.push(context,
         MaterialPageRoute(builder: (context) => const ViewProfileScreen()));
+    _loadProfileData();
   }
 
-  void _navigateToTalqinPractices() {
-    Navigator.push(context,
-        MaterialPageRoute(builder: (context) => const MainMenuScreen()));
-  }
-
-  void _navigateToYaasinReading() {
-    Navigator.push(context,
-        MaterialPageRoute(builder: (context) => const YaasinReadingScreen()));
-  }
-
-  void _navigateToNotificationPage() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const NotificationPage()),
-    );
-  }
-
+  void _navigateToTalqinPractices() => Navigator.push(
+      context, MaterialPageRoute(builder: (context) => const MainMenuScreen()));
+  void _navigateToYaasinReading() => Navigator.push(context,
+      MaterialPageRoute(builder: (context) => const YaasinReadingScreen()));
+  void _navigateToNotificationPage() => Navigator.push(context,
+      MaterialPageRoute(builder: (context) => const NotificationPage()));
   void _navigateToSettings() {
     AppLocalizations.showLanguageDialog(context, (langCode) {
       Provider.of<LocaleProvider>(context, listen: false)
@@ -177,171 +193,95 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print(
-        "ProfileScreen: build called. User: $_userName. Email: $_email. IsLoggingOut: $_isLoggingOut");
-
-    bool showInitialLoading =
-        (_userName == "Loading..." && _email == "Loading...") &&
-            FirebaseAuth.instance.currentUser != null &&
-            !_isLoggingOut;
-    bool showRedirectingToLogin =
-        (_userName == "Not Logged In" ||
-            FirebaseAuth.instance.currentUser == null) &&
-            !_isLoggingOut;
-
-    if (showInitialLoading || showRedirectingToLogin) {
-      return Scaffold(
-        body: Stack(
-          children: [
-            Positioned.fill(
-              child: Image.asset(
-                "assets/images/al-marhum/islamicbackground.png",
+    return Scaffold(
+      body: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image:
+                    AssetImage("assets/images/al-marhum/islamicbackground.png"),
                 fit: BoxFit.cover,
               ),
             ),
-            const Center(child: CircularProgressIndicator()),
-          ],
-        ),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: Text(
-            AppLocalizations.get(context, 'account', fallback: 'Account') ??
-                'Account',
-            style: const TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-                fontFamily: 'Metamorphous')),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Colors.black),
-            onPressed: _navigateToNotificationPage,
-            tooltip: 'Notifications',
           ),
-        ],
-      ),
-      extendBodyBehindAppBar: true,
-      body: Stack(
-        children: <Widget>[
-          Positioned.fill(
-            child: Image.asset(
-              "assets/images/al-marhum/islamicbackground.png",
-              fit: BoxFit.cover,
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withOpacity(0.5),
+                  Colors.black.withOpacity(0.8),
+                ],
+              ),
             ),
+          ),
+          CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                pinned: true,
+                centerTitle: true,
+                // MODIFICATION: Increased expanded height to prevent overflow
+                expandedHeight: 250.0,
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_outlined,
+                        color: AppColors.textPrimary),
+                    onPressed: _navigateToNotificationPage,
+                    tooltip: 'Notifications',
+                  ),
+                ],
+                flexibleSpace: FlexibleSpaceBar(
+                  centerTitle: true,
+                  titlePadding: const EdgeInsets.only(bottom: 16),
+                  title: Text(
+                      AppLocalizations.get(context, 'account',
+                              fallback: 'Account') ??
+                          'Account',
+                      style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Metamorphous')),
+                  background: SafeArea(
+                    child: Padding(
+                      // MODIFICATION: Adjusted padding for better fit
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 45),
+                      child: _buildProfileHeader(),
+                    ),
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                sliver: SliverGrid.count(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 1.25,
+                  children: _buildGridItems(),
+                ),
+              ),
+            ],
           ),
           if (_isLoggingOut)
             Container(
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withOpacity(0.7),
               child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const CircularProgressIndicator(color: Colors.white),
-                      const SizedBox(height: 16),
-                      Text(
-                        AppLocalizations.get(context, 'logging_out',
-                            fallback: 'Logging out...') ??
-                            'Logging out...',
-                        style: const TextStyle(fontSize: 16, color: Colors.white),
-                      ),
-                    ],
-                  )),
-            )
-          else
-            SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16.0, vertical: 20.0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SizedBox(
-                        height: kToolbarHeight +
-                            MediaQuery.of(context).padding.top +
-                            20),
-                    const SizedBox(height: 20),
+                    const CircularProgressIndicator(color: Colors.white),
+                    const SizedBox(height: 16),
                     Text(
-                      _userName,
-                      style: const TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                          fontFamily: 'Metamorphous'),
-                      textAlign: TextAlign.center,
-                    ),
-                    if (_email.isNotEmpty &&
-                        _email != "No Email Found" &&
-                        _userName != _email &&
-                        _userName != "Not Logged In" &&
-                        _userName != "Loading...")
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: Text(
-                          _email,
-                          style: TextStyle(
-                              fontSize: 14, color: Colors.grey.shade700),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    const SizedBox(height: 30),
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisSpacing: 12.0,
-                      mainAxisSpacing: 12.0,
-                      childAspectRatio: 1.3,
-                      children: <Widget>[
-                        _buildOptionCard(
-                          context: context,
-                          titleKey: 'myProfile',
-                          subtitleKey: 'viewProfile',
-                          icon: Icons.person_outline,
-                          onTap: _navigateToViewProfile,
-                        ),
-                        _buildOptionCard(
-                          context: context,
-                          titleKey: 'password',
-                          subtitleKey: 'changePassword',
-                          icon: Icons.lock_outline,
-                          onTap: _navigateToChangePassword,
-                        ),
-                        _buildOptionCard(
-                          context: context,
-                          titleKey: 'Talqin & Du\'a',
-                          subtitleKey: 'Islam Practices',
-                          icon: Icons.book_outlined,
-                          onTap: _navigateToTalqinPractices,
-                        ),
-                        _buildOptionCard(
-                          context: context,
-                          titleKey: 'Yaasin Reading',
-                          subtitleKey: 'Read Yaasin',
-                          icon: Icons.menu_book_outlined,
-                          onTap: _navigateToYaasinReading,
-                        ),
-                        _buildOptionCard(
-                          context: context,
-                          titleKey: 'settings',
-                          subtitleKey: 'changeSettings',
-                          icon: Icons.settings_outlined,
-                          onTap: _navigateToSettings,
-                        ),
-                        _buildOptionCard(
-                          context: context,
-                          titleKey: 'logout',
-                          subtitleKey: 'seeYouAgain',
-                          icon: Icons.logout,
-                          onTap: _showLogoutDialog,
-                        ),
-                      ],
+                      AppLocalizations.get(context, 'logging_out',
+                              fallback: 'Logging out...') ??
+                          'Logging out...',
+                      style: const TextStyle(fontSize: 16, color: Colors.white),
                     ),
                   ],
                 ),
@@ -352,78 +292,150 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildProfileHeader() {
+    final bool hasPhoto =
+        _profileImageFile != null && _profileImageFile!.existsSync();
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        CircleAvatar(
+          radius: 40,
+          backgroundColor: AppColors.primary.withOpacity(0.8),
+          backgroundImage:
+              hasPhoto ? FileImage(_profileImageFile!) as ImageProvider : null,
+          child: !hasPhoto
+              ? Text(
+                  _userInitial,
+                  style: const TextStyle(
+                      fontSize: 32,
+                      color: AppColors.accent,
+                      fontWeight: FontWeight.bold),
+                )
+              : null,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          _userName,
+          style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+              shadows: [Shadow(blurRadius: 2, color: Colors.black54)]),
+          textAlign: TextAlign.center,
+        ),
+        if (_userEmail.isNotEmpty && _userEmail != "No Email Found")
+          Padding(
+            padding: const EdgeInsets.only(top: 4.0),
+            child: Text(
+              _userEmail,
+              style:
+                  const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+          ),
+      ],
+    );
+  }
+
+  List<Widget> _buildGridItems() {
+    return [
+      _buildOptionCard(
+        titleKey: 'myProfile',
+        icon: Icons.person_search_outlined,
+        onTap: _navigateToViewProfile,
+        color: AppColors.accountCategory,
+      ),
+      _buildOptionCard(
+        titleKey: 'password',
+        icon: Icons.lock_person_outlined,
+        onTap: _navigateToChangePassword,
+        color: AppColors.accountCategory,
+      ),
+      _buildOptionCard(
+        titleKey: 'Talqin & Du\'a',
+        icon: Icons.book_outlined,
+        onTap: _navigateToTalqinPractices,
+        color: AppColors.practiceCategory,
+      ),
+      _buildOptionCard(
+        // MODIFICATION: Updated key to match screenshot
+        titleKey: 'Surah Yaasin',
+        icon: Icons.menu_book_outlined,
+        onTap: _navigateToYaasinReading,
+        color: AppColors.practiceCategory,
+      ),
+      _buildOptionCard(
+        titleKey: 'settings',
+        icon: Icons.translate_outlined,
+        onTap: _navigateToSettings,
+        color: AppColors.settingsCategory,
+      ),
+      _buildOptionCard(
+        titleKey: 'logout',
+        icon: Icons.logout,
+        onTap: _showLogoutDialog,
+        color: AppColors.destructiveCategory,
+        isDestructive: true,
+      ),
+    ];
+  }
+
   Widget _buildOptionCard({
-    required BuildContext context,
     required String titleKey,
-    required String subtitleKey,
     required IconData icon,
     required VoidCallback onTap,
+    required Color color,
+    bool isDestructive = false,
   }) {
-    const titleStyle = TextStyle(
-      fontWeight: FontWeight.bold,
-      fontSize: 17,
-      color: Colors.black87,
-      fontFamily: 'Metamorphous',
-    );
-    final subtitleStyle = TextStyle(
-      fontSize: 15,
-      color: Colors.grey[700],
-      fontFamily: 'Metamorphous',
-    );
-
     final String titleText =
         AppLocalizations.get(context, titleKey, fallback: titleKey) ?? titleKey;
-    final String subtitleText =
-        AppLocalizations.get(context, subtitleKey, fallback: subtitleKey) ??
-            subtitleKey;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12.0),
-      child: Card(
-        elevation: 1.0,
-        shape:
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-        color: Colors.yellow.shade100.withOpacity(0.8),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Positioned.fill(
-              child: Opacity(
-                opacity: 0.15,
-                child: Icon(
-                  icon,
-                  size: 110,
-                  color: Colors.black,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20.0),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+        child: InkWell(
+          onTap: onTap,
+          splashColor: color.withOpacity(0.2),
+          highlightColor: color.withOpacity(0.1),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(20.0),
+              border: Border.all(
+                color: Colors.white.withOpacity(isDestructive ? 0.4 : 0.2),
+                width: isDestructive ? 1.5 : 1,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor:
+                      isDestructive ? color.withOpacity(0.8) : color,
+                  child: Icon(icon, size: 26, color: Colors.white),
                 ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    titleText,
-                    style: titleStyle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
+                const SizedBox(height: 12),
+                Text(
+                  titleText,
+                  style: const TextStyle(
+                    // MODIFICATION: Set text color to always be white
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: AppColors.textPrimary,
+                    fontFamily: 'Metamorphous',
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    subtitleText,
-                    style: subtitleStyle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

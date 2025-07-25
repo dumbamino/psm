@@ -1,22 +1,19 @@
-// lib/screens/MyRecords.dart
-
 import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:psm/screens/NewRecord.dart';
 import 'package:psm/screens/record_details.dart';
 import 'package:psm/service/firestore.dart';
 import 'package:psm/service/records.dart';
-import 'package:psm/screens/NewRecord.dart';
+
+import '../profile/profilescreen.dart'; // For AppColors and theming
 
 class MyRecordsScreen extends StatefulWidget {
   final List<Record>? initialSearchResults;
 
-  const MyRecordsScreen({
-    super.key,
-    this.initialSearchResults,
-  });
+  const MyRecordsScreen({super.key, this.initialSearchResults});
 
   @override
   State<MyRecordsScreen> createState() => _MyRecordsScreenState();
@@ -35,16 +32,6 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
 
   final DateFormat _dateFormat = DateFormat('dd MMM yyyy');
 
-  BoxDecoration get _screenBackgroundDecoration {
-    return BoxDecoration(
-      gradient: LinearGradient(
-        colors: [Colors.green.shade100, Colors.white],
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-      ),
-    );
-  }
-
   @override
   void initState() {
     super.initState();
@@ -52,7 +39,6 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
       _searchResultsList = widget.initialSearchResults;
       _isShowingSearchResults = true;
     }
-
     _isLoadingUser = true;
     _authStateSubscription = _auth.authStateChanges().listen((User? user) {
       if (!mounted) return;
@@ -79,14 +65,14 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => RecordDetailScreen(record: record),
-      ),
+          builder: (context) => RecordDetailScreen(record: record)),
     );
   }
 
   Future<void> _navigateToNewRecordScreen() async {
     if (_currentUser == null) {
-      _showFeedbackSnackbar("Please log in to create a new record.", isError: true);
+      _showFeedbackSnackbar("Please log in to create a new record.",
+          isError: true);
       return;
     }
     await Navigator.push(
@@ -97,7 +83,8 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
 
   Future<void> _navigateToEditRecordScreen(Record record) async {
     if (_currentUser == null || record.userId != _currentUser!.uid) {
-      _showFeedbackSnackbar("You can only edit your own records.", isError: true);
+      _showFeedbackSnackbar("You can only edit your own records.",
+          isError: true);
       return;
     }
     await Navigator.push(
@@ -111,10 +98,12 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
     );
   }
 
-  Future<void> _confirmAndDeleteRecord(BuildContext dialogContext, Record record) async {
+  Future<void> _confirmAndDeleteRecord(
+      BuildContext dialogContext, Record record) async {
     Navigator.of(dialogContext).pop();
     if (_currentUser == null || record.userId != _currentUser!.uid) {
-      _showFeedbackSnackbar("You can only delete your own records.", isError: true);
+      _showFeedbackSnackbar("You can only delete your own records.",
+          isError: true);
       return;
     }
 
@@ -131,7 +120,8 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
         _clearSearch();
       }
     } catch (e) {
-      _showFeedbackSnackbar('Failed to delete record: ${e.toString()}', isError: true);
+      _showFeedbackSnackbar('Failed to delete record: ${e.toString()}',
+          isError: true);
     }
   }
 
@@ -142,15 +132,27 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          title: const Text('Confirm Deletion'),
-          content: const Text('Are you sure you want to delete this record? This action cannot be undone.'),
+          backgroundColor: Colors.grey[850],
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            'Confirm Deletion',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: const Text(
+            'Are you sure you want to delete this record? This action cannot be undone.',
+            style: TextStyle(color: Colors.white70),
+          ),
           actions: <Widget>[
             TextButton(
-              child: const Text('Cancel'),
+              child:
+                  const Text('Cancel', style: TextStyle(color: Colors.white70)),
               onPressed: () => Navigator.of(dialogContext).pop(),
             ),
             TextButton(
-              style: TextButton.styleFrom(foregroundColor: Colors.red.shade700),
+              style: TextButton.styleFrom(
+                  foregroundColor: AppColors.destructiveCategory,
+                  textStyle: const TextStyle(fontWeight: FontWeight.bold)),
               child: const Text('Delete'),
               onPressed: () => _confirmAndDeleteRecord(dialogContext, record),
             ),
@@ -166,7 +168,9 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? Colors.red.shade600 : Colors.green.shade700,
+        backgroundColor: isError
+            ? AppColors.destructiveCategory
+            : AppColors.practiceCategory,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -179,15 +183,16 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
 
     if (_isShowingSearchResults) {
       if (_searchResultsList == null || _searchResultsList!.isEmpty) {
-        return _buildEmptyState(isLoggedIn: _currentUser != null, isSearch: true);
+        return _buildEmptyState(
+            isLoggedIn: _currentUser != null, isSearch: true);
       }
       return ListView.builder(
         padding: const EdgeInsets.only(top: 10, bottom: 80),
         itemCount: _searchResultsList!.length,
-        itemBuilder: (context, index) => _buildRecordItem(_searchResultsList![index]),
+        itemBuilder: (context, index) =>
+            _buildRecordItem(_searchResultsList![index]),
       );
-    }
-    else {
+    } else {
       if (_currentUser == null) {
         return _buildEmptyState(isLoggedIn: false);
       }
@@ -198,7 +203,12 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}"));
+            return Center(
+              child: Text(
+                "Error: ${snapshot.error}",
+                style: const TextStyle(color: Colors.redAccent),
+              ),
+            );
           }
           final records = snapshot.data ?? [];
           if (records.isEmpty) {
@@ -216,19 +226,36 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final appBarTitle = _isShowingSearchResults ? "Search Results" : "My Records";
+    final appBarTitle =
+        _isShowingSearchResults ? "Search Results" : "My Records";
     final showFab = _currentUser != null && !_isShowingSearchResults;
 
     return Scaffold(
       appBar: AppBar(
-        leading: _isShowingSearchResults ? IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded), onPressed: () => Navigator.of(context).pop()) : null,
-        title: Text(appBarTitle),
-        backgroundColor: Colors.transparent, elevation: 0, foregroundColor: Colors.black87, centerTitle: true,
-        titleTextStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+        leading: _isShowingSearchResults
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                onPressed: () => Navigator.of(context).pop(),
+                color: AppColors.textPrimary,
+              )
+            : null,
+        title: Text(
+          appBarTitle,
+          style: const TextStyle(
+            fontFamily: 'Metamorphous',
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+            shadows: [Shadow(blurRadius: 3, color: Colors.black54)],
+          ),
+        ),
+        backgroundColor: AppColors.primary,
+        elevation: 0,
+        centerTitle: true,
         actions: <Widget>[
           if (_isShowingSearchResults)
             IconButton(
-              icon: const Icon(Icons.clear_all_rounded),
+              icon: const Icon(Icons.clear_all_rounded, color: Colors.white70),
               tooltip: 'Clear Search & Go Back',
               onPressed: _clearSearch,
             ),
@@ -236,46 +263,97 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
         ],
       ),
       extendBodyBehindAppBar: true,
-      body: Container(
-        width: double.infinity, height: double.infinity, decoration: _screenBackgroundDecoration,
-        child: SafeArea(
-          bottom: false,
-          child: _buildContentArea(),
-        ),
+      body: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image:
+                    AssetImage("assets/images/al-marhum/islamicbackground.png"),
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withOpacity(0.5),
+                  Colors.black.withOpacity(0.8),
+                ],
+              ),
+            ),
+          ),
+          SafeArea(
+            bottom: false,
+            child: _buildContentArea(),
+          ),
+          if (showFab)
+            Positioned(
+              bottom: 20,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: FloatingActionButton.extended(
+                  onPressed: _navigateToNewRecordScreen,
+                  icon: const Icon(Icons.note_add_outlined),
+                  label: const Text("Add New Record"),
+                  backgroundColor: AppColors.practiceCategory,
+                  foregroundColor: AppColors.textPrimary,
+                  elevation: 8,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24)),
+                  extendedTextStyle: const TextStyle(
+                    fontFamily: 'Metamorphous',
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: showFab
-          ? FloatingActionButton.extended(
-        onPressed: _navigateToNewRecordScreen,
-        icon: const Icon(Icons.note_add_outlined), label: const Text("Add New Record"),
-        backgroundColor: Colors.green.shade700, foregroundColor: Colors.white,
-      )
-          : null,
     );
   }
 
   Widget _buildRecordItem(Record record) {
     final bool isOwner = _currentUser?.uid == record.userId;
-    String dateOfDeath = record.deceasedDod != null ? _dateFormat.format(record.deceasedDod!.toDate()) : 'N/A';
+    String dateOfDeath = record.deceasedDod != null
+        ? _dateFormat.format(record.deceasedDod!.toDate())
+        : 'N/A';
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      elevation: 3,
+      elevation: 4,
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shadowColor: Colors.black.withOpacity(0.15),
       child: InkWell(
         onTap: () => _navigateToRecordDetails(record),
+        splashColor: AppColors.practiceCategory.withOpacity(0.2),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16.0, 16.0, 8.0, 16.0),
+          padding: const EdgeInsets.fromLTRB(20, 20, 12, 20),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(record.deceasedName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87)),
-                    const SizedBox(height: 8),
+                  children: [
+                    Text(
+                      record.deceasedName,
+                      style: const TextStyle(
+                        fontFamily: 'Metamorphous',
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                        color: Colors.black87,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     _buildInfoRow('Date of Death:', dateOfDeath),
                     _buildInfoRow('Area:', record.area),
                     _buildInfoRow('Lot:', record.graveLot ?? 'N/A'),
@@ -286,8 +364,18 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(icon: Icon(Icons.edit_outlined, color: Colors.blue.shade700), onPressed: () => _navigateToEditRecordScreen(record), tooltip: 'Edit Record'),
-                    IconButton(icon: Icon(Icons.delete_outline, color: Colors.red.shade700), onPressed: () => _showDeleteConfirmationDialog(record), tooltip: 'Delete Record'),
+                    IconButton(
+                      icon: Icon(Icons.edit_outlined,
+                          color: Colors.blue.shade700),
+                      tooltip: 'Edit Record',
+                      onPressed: () => _navigateToEditRecordScreen(record),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.delete_outline,
+                          color: Colors.red.shade700),
+                      tooltip: 'Delete Record',
+                      onPressed: () => _showDeleteConfirmationDialog(record),
+                    ),
                   ],
                 ),
             ],
@@ -297,7 +385,109 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value) { return Padding( padding: const EdgeInsets.symmetric(vertical: 2.0), child: Row( crossAxisAlignment: CrossAxisAlignment.start, children: [ Text(label, style: TextStyle(fontSize: 14, color: Colors.grey.shade700, fontWeight: FontWeight.w500)), const SizedBox(width: 5), Expanded(child: Text(value, style: const TextStyle(fontSize: 14, color: Colors.black87))), ], ), ); }
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+              color: Colors.grey.shade700,
+              fontFamily: 'Metamorphous',
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 15,
+                color: Colors.black87,
+                height: 1.3,
+                fontFamily: 'Metamorphous',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  Widget _buildEmptyState({required bool isLoggedIn, bool isSearch = false}) { final String title = isLoggedIn ? (isSearch ? "No Matching Records" : "No Records Yet") : "Login Required"; final String message = isLoggedIn ? (isSearch ? "Try searching with a different keyword." : "Tap the '+' button below to create your first record.") : "Please log in to view and manage your records."; final IconData iconData = isLoggedIn ? (isSearch ? Icons.search_off_rounded : Icons.note_add_outlined) : Icons.lock_person_outlined; final Color primaryColor = isLoggedIn ? Colors.green.shade700 : Colors.orange.shade700; return Center( child: Padding( padding: const EdgeInsets.all(24.0), child: Column( mainAxisAlignment: MainAxisAlignment.center, children: [ Icon(iconData, size: 60, color: primaryColor.withOpacity(0.8)), const SizedBox(height: 20), Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: primaryColor, fontWeight: FontWeight.w600)), const SizedBox(height: 12), Text(message, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.black54, height: 1.4)), if (isSearch) ...[ const SizedBox(height: 20), ElevatedButton.icon( icon: const Icon(Icons.arrow_back_rounded), label: const Text("Go Back to Search"), onPressed: _clearSearch, ) ] ], ), ), ); }
+  Widget _buildEmptyState({required bool isLoggedIn, bool isSearch = false}) {
+    final String title = isLoggedIn
+        ? (isSearch ? "No Matching Records" : "No Records Yet")
+        : "Login Required";
+    final String message = isLoggedIn
+        ? (isSearch
+            ? "Try searching with a different keyword."
+            : "Tap the '+' button below to create your first record.")
+        : "Please log in to view and manage your records.";
+    final IconData iconData = isLoggedIn
+        ? (isSearch ? Icons.search_off_rounded : Icons.note_add_outlined)
+        : Icons.lock_person_outlined;
+    final Color primaryColor =
+        isLoggedIn ? AppColors.practiceCategory : Colors.orange.shade700;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(iconData, size: 70, color: primaryColor.withOpacity(0.8)),
+            const SizedBox(height: 24),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Metamorphous',
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: primaryColor,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: 'Metamorphous',
+                fontSize: 16,
+                color: Colors.black54,
+                height: 1.4,
+              ),
+            ),
+            if (isSearch) ...[
+              const SizedBox(height: 30),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.arrow_back_rounded),
+                label: const Text("Go Back to Search"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.practiceCategory,
+                  foregroundColor: AppColors.textPrimary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  textStyle: const TextStyle(
+                    fontFamily: 'Metamorphous',
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+                onPressed: _clearSearch,
+              )
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }

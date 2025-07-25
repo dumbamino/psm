@@ -60,14 +60,12 @@ class AuthWrapper extends StatelessWidget {
         }
 
         // --- User is LOGGED IN ---
-        // snapshot.hasData is true, meaning the User object is not null.
         if (snapshot.hasData) {
           print("[AuthWrapper] User IS LOGGED IN. UID: ${snapshot.data!.uid}. Showing DashboardScreen.");
           // The user is authenticated, so we show the main part of the app.
           return const DashboardScreen();
         }
         // --- User is LOGGED OUT ---
-        // snapshot.hasData is false, meaning the User object is null.
         else {
           print("[AuthWrapper] User is NOT LOGGED IN. Showing HomeScreen.");
           // The user is not authenticated, so we show the public home/login screen.

@@ -16,8 +16,8 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  // Controller for the "Username" field (which maps to fullName in the backend)
-  final TextEditingController usernameController = TextEditingController();
+  // Controller for the email field
+  final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final AuthService _authService = AuthService(); // Instance of your AuthService
 
@@ -25,17 +25,17 @@ class _LoginPageState extends State<LoginPage> {
   bool _isPasswordObscured = true;
 
   Future<void> _login(BuildContext context) async {
-    // Get the value from the "Username" field, which is treated as a fullName
-    final String enteredUsernameAsFullName = usernameController.text.trim();
+    // Get the value from the Email field
+    final String enteredEmail = emailController.text.trim();
     final String password = passwordController.text.trim(); // Also trim password
 
     // Basic validation
-    if (enteredUsernameAsFullName.isEmpty || password.isEmpty) {
+    if (enteredEmail.isEmpty || password.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-                AppLocalizations.get(context, 'username_password_required', fallback: 'Username and Password are required.') ?? 'Username and Password are required.'
+                AppLocalizations.get(context, 'email_password_required', fallback: 'Email and Password are required.') ?? 'Email and Password are required.'
             ),
           ),
         );
@@ -48,10 +48,10 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      print("LoginPage: Calling AuthService.signInWithFullNameAndPassword for username (as fullName): '$enteredUsernameAsFullName'");
-      // Call the primary method from AuthService
-      await _authService.signInWithFullNameAndPassword(
-        fullName: enteredUsernameAsFullName,
+      print("LoginPage: Calling AuthService.signInWithEmailAndPassword for email: '$enteredEmail'");
+      // Call the email sign-in method from AuthService
+      await _authService.signInWithEmailAndPassword(
+        email: enteredEmail,
         password: password,
       );
 
@@ -85,7 +85,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   void dispose() {
-    usernameController.dispose();
+    emailController.dispose();
     passwordController.dispose();
     super.dispose();
   }
@@ -95,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
     // Using AppLocalizations for text if available, otherwise fallback
     final String loginStr = AppLocalizations.get(context, 'login', fallback: 'Login') ?? 'Login';
     final String welcomeBackStr = AppLocalizations.get(context, 'welcome_back', fallback: 'Welcome Back') ?? 'Welcome Back';
-    final String usernameStr = AppLocalizations.get(context, 'username', fallback: 'Username') ?? 'Username';
+    final String emailStr = AppLocalizations.get(context, 'labelEmail', fallback: 'Email') ?? 'Email';
     final String passwordStr = AppLocalizations.get(context, 'password', fallback: 'Password') ?? 'Password';
     final String forgotPasswordStr = AppLocalizations.get(context, 'forgot_password_prompt', fallback: 'Forgot Password?') ?? 'Forgot Password?';
     final String noAccountStr = AppLocalizations.get(context, 'dont_have_account', fallback: "Don't have an account?") ?? "Don't have an account?";
@@ -150,12 +150,12 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 const SizedBox(height: 30),
-                // Username (fullName) TextField
+                // Email TextField
                 TextField(
-                  controller: usernameController,
+                  controller: emailController,
                   style: const TextStyle(color: Colors.black87),
                   decoration: InputDecoration(
-                    labelText: usernameStr,
+                    labelText: emailStr,
                     labelStyle: TextStyle(color: Colors.green.shade700, fontFamily: 'Metamorphous'),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -165,11 +165,11 @@ class _LoginPageState extends State<LoginPage> {
                       borderRadius: BorderRadius.circular(10),
                       borderSide: BorderSide(color: Colors.green.shade800, width: 2),
                     ),
-                    prefixIcon: Icon(Icons.person_outline, color: Colors.green.shade700),
+                    prefixIcon: Icon(Icons.email_outlined, color: Colors.green.shade700),
                     filled: true,
                     fillColor: Colors.white.withOpacity(0.8),
                   ),
-                  keyboardType: TextInputType.text, // Appropriate for names/usernames
+                  keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 16),
                 // Password TextField

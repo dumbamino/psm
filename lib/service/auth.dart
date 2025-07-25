@@ -82,6 +82,39 @@ class AuthService {
     return signInWithFullNameAndPassword(fullName: username, password: password);
   }
 
+  Future<User?> signInWithEmailAndPassword({
+    required String email,
+    required String password,
+  }) async {
+    print("AuthService: Attempting login with email: $email");
+    try {
+      final UserCredential userCredential = await _firebaseAuth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      print("AuthService: signInWithEmailAndPassword successful. User UID: ${userCredential.user?.uid}");
+      return userCredential.user;
+    } on FirebaseAuthException catch (e) {
+      print("AuthService: FirebaseAuthException during email sign in: ${e.code} - ${e.message}");
+      if (e.code == 'user-not-found') {
+        throw Exception('No account found for that email.');
+      } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        throw Exception('Incorrect password.');
+      } else if (e.code == 'invalid-email') {
+        throw Exception('The email address is not valid.');
+      } else if (e.code == 'too-many-requests') {
+        throw Exception('Too many login attempts. Please try again later.');
+      }
+      throw Exception('Login failed: ${e.message}');
+    } catch (e) {
+      print("AuthService: Generic exception during email sign in: $e");
+      if (e is Exception) {
+        throw e;
+      }
+      throw Exception('An unexpected error occurred during login. Please try again.');
+    }
+  }
+
 
   Future<void> signOut() async {
     print("AuthService: Signing out user.");

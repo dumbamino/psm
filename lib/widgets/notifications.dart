@@ -3,53 +3,52 @@ import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:flutter/material.dart';
 
 class NotificationService {
+  /// Initialize Awesome Notifications with current supported parameters.
   static Future<void> initializeNotification() async {
-    // Initialize awesome notifications
     await AwesomeNotifications().initialize(
-      // Use 'resource://drawable/res_app_icon' if you placed an icon named 'res_app_icon.png'
-      // in the android/app/src/main/res/drawable folder.
-      // Otherwise, set it to null to use the default app icon.
-        'resource://drawable/app_icon',
-        [
-          NotificationChannel(
-            channelKey: 'basic_channel',
-            channelName: 'Basic notifications',
-            channelDescription: 'Notification channel for basic app alerts',
-            defaultColor: Colors.teal,
-            ledColor: Colors.white,
-            importance: NotificationImportance.High,
-            channelShowBadge: true,
-          ),
-        ],
-        // Optional: Channel groups for organization
-        channelGroups: [
-          NotificationChannelGroup(
-            channelGroupKey: 'basic_channel_group',
-            channelGroupName: 'Basic group',
-          )
-        ],
-        debug: true);
+      'resource://drawable/app_icon',
+      [
+        NotificationChannel(
+          channelKey: 'basic_channel',
+          channelName: 'Basic notifications',
+          channelDescription: 'Notification channel for basic app alerts',
+          defaultColor: Colors.teal,
+          ledColor: Colors.white,
+          importance: NotificationImportance.High,
+          channelShowBadge: true,
+          // Removed vibrationPattern, enableVibration, enableLights (not supported)
+        ),
+      ],
+      channelGroups: [
+        NotificationChannelGroup(
+          channelGroupKey: 'basic_channel_group',
+          channelGroupName: 'Basic group',
+        )
+      ],
+      debug: true,
+    );
 
-    // Request permission to send notifications if not already allowed
-    bool isAllowed = await AwesomeNotifications().isNotificationAllowed();
+    // Request permission if not already granted
+    final bool isAllowed = await AwesomeNotifications().isNotificationAllowed();
     if (!isAllowed) {
       await AwesomeNotifications().requestPermissionToSendNotifications();
     }
   }
 
-  /// Listens for notification actions
+  /// Setup notification event listeners.
   static void configureListeners() {
     AwesomeNotifications().setListeners(
-        onActionReceivedMethod: NotificationController.onActionReceivedMethod,
-        onNotificationCreatedMethod:
-        NotificationController.onNotificationCreatedMethod,
-        onNotificationDisplayedMethod:
-        NotificationController.onNotificationDisplayedMethod,
-        onDismissActionReceivedMethod:
-        NotificationController.onDismissActionReceivedMethod);
+      onActionReceivedMethod: NotificationController.onActionReceivedMethod,
+      onNotificationCreatedMethod:
+          NotificationController.onNotificationCreatedMethod,
+      onNotificationDisplayedMethod:
+          NotificationController.onNotificationDisplayedMethod,
+      onDismissActionReceivedMethod:
+          NotificationController.onDismissActionReceivedMethod,
+    );
   }
 
-  /// Method to trigger a simple notification
+  /// Show a notification (big picture or default layout).
   static Future<void> showBasicNotification({
     required int id,
     required String title,
@@ -67,45 +66,46 @@ class NotificationService {
         summary: summary,
         payload: payload,
         largeIcon: largeIcon,
-        notificationLayout: largeIcon != null ? NotificationLayout.BigPicture : NotificationLayout.Default,
+        notificationLayout: largeIcon != null
+            ? NotificationLayout.BigPicture
+            : NotificationLayout.Default,
+        autoDismissible: true,
+        category: NotificationCategory.Reminder,
+        wakeUpScreen: true,
+        fullScreenIntent: false,
+        criticalAlert: false,
+        displayOnForeground: true,
+        displayOnBackground: true,
+        // Removed vibrationPattern (not supported)
       ),
     );
   }
 }
 
-
-/// Controller class to handle notification events in the background.
+/// Notification event handler class.
 class NotificationController {
-  /// Use this method to detect when a new notification or a schedule is created
   @pragma("vm:entry-point")
   static Future<void> onNotificationCreatedMethod(
       ReceivedNotification receivedNotification) async {
-    debugPrint('onNotificationCreatedMethod');
+    debugPrint('Notification created: ${receivedNotification.id}');
   }
 
-  /// Use this method to detect every time that a new notification is displayed
   @pragma("vm:entry-point")
   static Future<void> onNotificationDisplayedMethod(
       ReceivedNotification receivedNotification) async {
-    debugPrint('onNotificationDisplayedMethod');
+    debugPrint('Notification displayed: ${receivedNotification.id}');
   }
 
-  /// Use this method to detect if the user dismissed a notification
   @pragma("vm:entry-point")
   static Future<void> onDismissActionReceivedMethod(
       ReceivedAction receivedAction) async {
-    debugPrint('onDismissActionReceivedMethod');
+    debugPrint('Notification dismissed: ${receivedAction.id}');
   }
 
-  /// Use this method to detect when the user taps on a notification or action button
   @pragma("vm:entry-point")
   static Future<void> onActionReceivedMethod(
       ReceivedAction receivedAction) async {
-    debugPrint('onActionReceivedMethod');
-    // Here, you can add navigation logic based on the payload.
-    // For example, if the payload contains a route, you can navigate to it.
-    // Note: This runs in a background isolate. Direct navigation is tricky.
-    // A common approach is to use a stream or other state management solution
-    // to communicate the navigation event to the main app.
+    debugPrint('Notification action received: ${receivedAction.id}');
+    // Run navigation logic in main app isolate if needed
   }
 }

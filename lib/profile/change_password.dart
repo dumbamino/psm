@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../localization/app_localizations.dart'; // For AppBar title
+
+import '../localization/app_localizations.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({Key? key}) : super(key: key);
@@ -8,7 +9,8 @@ class ChangePasswordScreen extends StatefulWidget {
   State<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
 }
 
-class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
+class _ChangePasswordScreenState extends State<ChangePasswordScreen>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _oldPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
@@ -28,120 +30,188 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   void _changePassword() {
     if (_formKey.currentState!.validate()) {
-      // Implement your password change logic here
+      // TODO: Implement actual password change logic here
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Password changed successfully!')),
+        const SnackBar(
+          content: Text('Password changed successfully!'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.green,
+          elevation: 6,
+        ),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final customFont = 'Metamorphous';
+    const String customFont = 'Metamorphous';
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        backgroundColor: Colors.white.withOpacity(0.95),
+        elevation: 1,
+        iconTheme: const IconThemeData(color: Colors.black87),
+        centerTitle: true,
         title: Text(
-          AppLocalizations.get(context, 'changePassword', fallback: '') ?? 'Change Password',
+          AppLocalizations.get(context, 'changePassword', fallback: '') ??
+              'Change Password',
           style: const TextStyle(
-            color: Colors.black,
+            color: Colors.black87,
             fontWeight: FontWeight.bold,
-            fontSize: 18,
-            fontFamily: 'Metamorphous',
+            fontSize: 20,
+            fontFamily: customFont,
           ),
         ),
-        centerTitle: true,
       ),
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           image: DecorationImage(
-            image: AssetImage('assets/images/al-marhum/islamicbackground.png'), // Update path as needed
+            image: AssetImage('assets/images/al-marhum/islamicbackground.png'),
             fit: BoxFit.cover,
           ),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-        child: Center(
-          child: SingleChildScrollView(
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: _oldPasswordController,
-                    obscureText: _obscureOld,
-                    style: const TextStyle(fontFamily: 'Metamorphous'),
-                    decoration: InputDecoration(
-                      labelText: 'Old Password',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      suffixIcon: IconButton(
-                        icon: Icon(_obscureOld ? Icons.visibility : Icons.visibility_off),
-                        onPressed: () => setState(() => _obscureOld = !_obscureOld),
-                      ),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.black.withOpacity(0.35),
+                Colors.black.withOpacity(0.75),
+              ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Center(
+            child: SingleChildScrollView(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildPasswordField(
+                      controller: _oldPasswordController,
+                      label: 'Old Password',
+                      obscureText: _obscureOld,
+                      toggleObscure: () =>
+                          setState(() => _obscureOld = !_obscureOld),
+                      prefixIcon: Icons.lock_outline,
+                      validator: (value) => (value == null || value.isEmpty)
+                          ? 'Please enter your old password'
+                          : null,
                     ),
-                    validator: (value) =>
-                        value == null || value.isEmpty ? 'Please enter your old password' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _newPasswordController,
-                    obscureText: _obscureNew,
-                    style: const TextStyle(fontFamily: 'Metamorphous'),
-                    decoration: InputDecoration(
-                      labelText: 'New Password',
-                      prefixIcon: const Icon(Icons.lock),
-                      suffixIcon: IconButton(
-                        icon: Icon(_obscureNew ? Icons.visibility : Icons.visibility_off),
-                        onPressed: () => setState(() => _obscureNew = !_obscureNew),
-                      ),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    const SizedBox(height: 16),
+                    _buildPasswordField(
+                      controller: _newPasswordController,
+                      label: 'New Password',
+                      obscureText: _obscureNew,
+                      toggleObscure: () =>
+                          setState(() => _obscureNew = !_obscureNew),
+                      prefixIcon: Icons.lock,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a new password';
+                        }
+                        if (value.length < 6) {
+                          return 'Password must be at least 6 characters';
+                        }
+                        return null;
+                      },
                     ),
-                    validator: (value) =>
-                        value == null || value.length < 6 ? 'Password must be Alphanumeric' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _reenterPasswordController,
-                    obscureText: _obscureReenter,
-                    style: const TextStyle(fontFamily: 'Metamorphous'),
-                    decoration: InputDecoration(
-                      labelText: 'Re-enter Password',
-                      prefixIcon: const Icon(Icons.lock_reset),
-                      suffixIcon: IconButton(
-                        icon: Icon(_obscureReenter ? Icons.visibility : Icons.visibility_off),
-                        onPressed: () => setState(() => _obscureReenter = !_obscureReenter),
-                      ),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    const SizedBox(height: 16),
+                    _buildPasswordField(
+                      controller: _reenterPasswordController,
+                      label: 'Re-enter Password',
+                      obscureText: _obscureReenter,
+                      toggleObscure: () =>
+                          setState(() => _obscureReenter = !_obscureReenter),
+                      prefixIcon: Icons.lock_reset,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please re-enter your new password';
+                        }
+                        if (value != _newPasswordController.text) {
+                          return 'Passwords do not match';
+                        }
+                        return null;
+                      },
                     ),
-                    validator: (value) =>
-                        value != _newPasswordController.text ? 'Passwords do not match' : null,
-                  ),
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF66BB6A),
-                        foregroundColor: Colors.white,
-                        textStyle: const TextStyle(fontFamily: 'Metamorphous', fontWeight: FontWeight.bold),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _changePassword,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          textStyle: const TextStyle(
+                            fontFamily: customFont,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                          elevation: 7,
+                          shadowColor: Colors.green.shade900.withOpacity(0.6),
+                        ),
+                        child: const Text('Change Password'),
                       ),
-                      onPressed: _changePassword,
-                      child: const Text('Change Password'),
                     ),
-      ),
-                ],
+                    const SizedBox(height: 40),
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPasswordField({
+    required TextEditingController controller,
+    required String label,
+    required bool obscureText,
+    required VoidCallback toggleObscure,
+    required IconData prefixIcon,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      style: const TextStyle(fontFamily: 'Metamorphous', color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(
+          fontFamily: 'Metamorphous',
+          color: Colors.white70,
+          fontSize: 16,
+        ),
+        prefixIcon: Icon(prefixIcon, color: Colors.green.shade200),
+        suffixIcon: IconButton(
+          icon: Icon(
+            obscureText ? Icons.visibility : Icons.visibility_off,
+            color: Colors.green.shade200,
+          ),
+          onPressed: toggleObscure,
+        ),
+        filled: true,
+        fillColor: Colors.green.shade900.withOpacity(0.35),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.green.shade400, width: 2.5),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+      ),
+      validator: validator,
     );
   }
 }
